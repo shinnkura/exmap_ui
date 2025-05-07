@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch"; 
 import { X, ChevronDown } from "lucide-react";
+import Select from "react-select";
 
 interface SearchConditionEditorProps {
   type: "engineer" | "company";
@@ -69,10 +69,69 @@ export function SearchConditionEditor({ type }: SearchConditionEditorProps) {
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: number]: boolean }>({});
 
   const jobTypes = type === "engineer" ? engineerJobTypes : companyJobTypes;
+  
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: '42px',
+      backgroundColor: 'hsl(var(--background))',
+      borderColor: 'hsl(var(--border))',
+      borderRadius: 'var(--radius)',
+      '&:hover': {
+        borderColor: 'hsl(var(--ring))'
+      }
+    }),
+    menu: (base: any) => ({
+      ...base,
+      backgroundColor: 'hsl(var(--background))',
+      border: '1px solid hsl(var(--border))',
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+      zIndex: 50
+    }),
+    option: (base: any, state: { isSelected: boolean; isFocused: boolean }) => ({
+      ...base,
+      padding: '8px 12px',
+      backgroundColor: state.isSelected 
+        ? 'hsl(var(--primary))' 
+        : state.isFocused 
+          ? 'hsl(var(--accent) / 0.1)' 
+          : 'transparent',
+      color: state.isSelected 
+        ? 'hsl(var(--primary-foreground))' 
+        : 'hsl(var(--foreground))',
+      cursor: 'pointer',
+      ':active': {
+        backgroundColor: 'hsl(var(--accent) / 0.2)'
+      }
+    }),
+    multiValue: (base: any) => ({
+      ...base,
+      backgroundColor: 'hsl(var(--primary) / 0.1)',
+      borderRadius: 'var(--radius)',
+    }),
+    multiValueLabel: (base: any) => ({
+      ...base,
+      color: 'hsl(var(--primary))',
+      padding: '2px 6px',
+    }),
+    multiValueRemove: (base: any) => ({
+      ...base,
+      color: 'hsl(var(--primary))',
+      ':hover': {
+        backgroundColor: 'hsl(var(--destructive) / 0.1)',
+        color: 'hsl(var(--destructive))',
+      },
+    }),
+  };
 
   const getAvailableJobs = (conditionId: number) => {
-    const currentCondition = conditions.find(c => c.id === conditionId);
-    return jobTypes.filter(job => !currentCondition?.selectedJobs.includes(job.name));
+    const currentCondition = conditions.find(c => c.id === conditionId); 
+    return jobTypes
+      .filter(job => !currentCondition?.selectedJobs.includes(job.name))
+      .map(job => ({
+        value: job.name,
+        label: job.name
+      }));
   };
 
   const handleWeightChange = (id: number, values: number[]) => {
@@ -137,50 +196,38 @@ export function SearchConditionEditor({ type }: SearchConditionEditorProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded-md">
-                    {condition.selectedJobs.map((job) => (
-                      <Badge
-                        key={job}
-                        variant="secondary"
-                        className="px-2 py-1 flex items-center gap-1 bg-green-50 text-green-700 hover:bg-green-100"
-                      >
-                        {job}
-                        <X
-                          className="h-3 w-3 cursor-pointer hover:text-red-500"
-                          onClick={() => handleJobRemove(condition.id, job)}
-                        />
-                      </Badge>
-                    ))}
-                  </div>
-
                   <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => toggleDropdown(condition.id)}
-                      className="flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={!condition.enabled}
-                    >
-                      <span>項目を選択してください</span>
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </button>
-                    {openDropdowns[condition.id] && (
-                      <div className="absolute z-10 w-full mt-2 rounded-md border bg-popover text-popover-foreground shadow-md">
-                        <div className="p-1">
-                          {getAvailableJobs(condition.id).map((job) => (
-                            <button
-                              key={job.id}
-                              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-                              onClick={() => {
-                                handleJobSelect(condition.id, job);
-                                toggleDropdown(condition.id);
-                              }}
-                            >
-                              {job.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <Select
+                      isDisabled={!condition.enabled}
+                      options={getAvailableJobs(condition.id)}
+                      placeholder="項目を選択してください"
+                      styles={selectStyles}
+                      value={condition.selectedJobs.map(job => ({
+                        value: job,
+                        label: job
+                      }))}
+                      isMulti
+                      onChange={(option) => {
+                        const selectedValues = Array.isArray(option)
+                          ? option.map(opt => opt.value)
+                          : [];
+                        setConditions(prev => prev.map(cond =>
+                          cond.id === condition.id
+                            ? { ...cond, selectedJobs: selectedValues }
+                            : cond
+                        ));
+                      }}
+                      isSearchable
+                      isClearable
+                     closeMenuOnSelect={false}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
+                      components={{
+                        DropdownIndicator: () => (
+                          <ChevronDown className="h-4 w-4 opacity-50 mr-2" />
+                        )
+                      }}
+                    />
                   </div>
                 </div>
               </div>
